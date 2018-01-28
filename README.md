@@ -53,7 +53,7 @@ Nested entities are normalized through the store:
     User cached = store.getUser(userId);
     String name = cached.getName();   // "Foo"
     
-    Message messageUpdated - new Message(messageId, userUpdated);
+    Message messageUpdated = new Message(messageId, userUpdated);
     store.put(messageUpdated);
     
     User cachedUpdated = store.getUser(userId);
