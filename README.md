@@ -45,6 +45,8 @@ Entities can be nested within other entities:
     
 Nested entities are normalized through the store:
 
+    User existing = store.getUser(userId);      // null
+
     Message message = new Message(messageId, user);
     store.put(message);
     
