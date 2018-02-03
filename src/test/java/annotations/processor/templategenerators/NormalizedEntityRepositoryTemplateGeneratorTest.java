@@ -6,7 +6,7 @@ import annotations.processor.testentities.user.User;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import core.IEntity;
-import entitynormalizer.store.NormalizedEntityStore;
+import entitynormalizer.store.NormalizedEntityRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -22,12 +22,12 @@ import static annotations.processor.testentities.user.UserList.USER_GOZZY;
 import static annotations.processor.testentities.user.UserList.USER_OZZY;
 import static org.junit.jupiter.api.Assertions.*;
 
-public class NormalizedStoreTemplateGeneratorTest {
+public class NormalizedEntityRepositoryTemplateGeneratorTest {
     private static final long MESSAGE_ID = 1L;
 
     private Message message;
 
-    private NormalizedEntityStore store;
+    private NormalizedEntityRepository repository;
 
     @BeforeEach
     public void init() {
@@ -46,17 +46,17 @@ public class NormalizedStoreTemplateGeneratorTest {
                     ImmutableList.of(DEVICE_WINDOWS),
                     ImmutableList.of(USER_GOZZY)));
 
-        store = new NormalizedEntityStore();
+        repository = new NormalizedEntityRepository();
     }
 
     @Test
     public void shouldStartEmpty() {
-        assertNull(store.getMessage(MESSAGE_ID));
+        assertNull(repository.getMessage(MESSAGE_ID));
     }
 
     @Test
     public void shouldExtractEntitiesWhenPut() {
-        Set<IEntity> dirty = store.put(message);
+        Set<IEntity> dirty = repository.put(message);
 
         assertEquals(dirty.size(), 7);
         assertTrue(dirty.contains(message));
@@ -70,37 +70,37 @@ public class NormalizedStoreTemplateGeneratorTest {
 
     @Test
     public void shouldGetEntities() {
-        store.put(message);
+        repository.put(message);
 
-        assertMessagesEquals(store.getMessage(MESSAGE_ID), message);
-        assertUsersEqual(store.getUser(USER_OZZY.id()), USER_OZZY);
-        assertUsersEqual(store.getUser(USER_FOZZY.id()), USER_FOZZY);
-        assertUsersEqual(store.getUser(USER_GOZZY.id()), USER_GOZZY);
-        assertDevicesEqual(store.getDevice(DEVICE_ANDROID.id()), DEVICE_ANDROID);
-        assertDevicesEqual(store.getDevice(DEVICE_IOS.id()), DEVICE_IOS);
-        assertDevicesEqual(store.getDevice(DEVICE_WINDOWS.id()), DEVICE_WINDOWS);
+        assertMessagesEquals(repository.getMessage(MESSAGE_ID), message);
+        assertUsersEqual(repository.getUser(USER_OZZY.id()), USER_OZZY);
+        assertUsersEqual(repository.getUser(USER_FOZZY.id()), USER_FOZZY);
+        assertUsersEqual(repository.getUser(USER_GOZZY.id()), USER_GOZZY);
+        assertDevicesEqual(repository.getDevice(DEVICE_ANDROID.id()), DEVICE_ANDROID);
+        assertDevicesEqual(repository.getDevice(DEVICE_IOS.id()), DEVICE_IOS);
+        assertDevicesEqual(repository.getDevice(DEVICE_WINDOWS.id()), DEVICE_WINDOWS);
     }
 
     @Test
     public void shouldUpdateSingleEntityFromSingleEntity() {
         User userOzzyCopy = new User(USER_OZZY.id(), "Ozzy-Copy");
 
-        store.put(USER_OZZY);
-        store.put(userOzzyCopy);
+        repository.put(USER_OZZY);
+        repository.put(userOzzyCopy);
 
-        assertUsersEqual(store.getUser(USER_OZZY.id()), userOzzyCopy);
+        assertUsersEqual(repository.getUser(USER_OZZY.id()), userOzzyCopy);
     }
 
     @Test
     public void shouldUpdateNestedEntityFromSingleEntity() {
         User userOzzyCopy = new User(USER_OZZY.id(), "Ozzy-Copy");
 
-        store.put(message);
-        store.put(userOzzyCopy);
+        repository.put(message);
+        repository.put(userOzzyCopy);
 
-        Message cachedMessage = store.getMessage(message.id());
+        Message cachedMessage = repository.getMessage(message.id());
 
-        assertUsersEqual(store.getUser(USER_OZZY.id()), userOzzyCopy);
+        assertUsersEqual(repository.getUser(USER_OZZY.id()), userOzzyCopy);
         assertUsersEqual(cachedMessage.getSender(), userOzzyCopy);
         List<User> deviceUsers = cachedMessage.getUsersByDevices().get(
                 ImmutableList.of(DEVICE_ANDROID, DEVICE_IOS));
@@ -111,10 +111,10 @@ public class NormalizedStoreTemplateGeneratorTest {
     public void shouldUpdateSingleEntityFromNestedEntity() {
         User userOzzyCopy = new User(USER_OZZY.id(), "Ozzy-Copy");
 
-        store.put(userOzzyCopy);
-        store.put(message);
+        repository.put(userOzzyCopy);
+        repository.put(message);
 
-        assertUsersEqual(store.getUser(userOzzyCopy.id()), USER_OZZY);
+        assertUsersEqual(repository.getUser(userOzzyCopy.id()), USER_OZZY);
     }
 
     @Test
@@ -137,11 +137,11 @@ public class NormalizedStoreTemplateGeneratorTest {
                         ImmutableList.of(DEVICE_WINDOWS),
                         ImmutableList.of(userGozzyCopy)));
 
-        store.put(message);
-        store.put(messageCopy);
+        repository.put(message);
+        repository.put(messageCopy);
 
-        assertUsersEqual(store.getUser(USER_FOZZY.id()), userFozzyCopy);
-        assertUsersEqual(store.getUser(USER_GOZZY.id()), userGozzyCopy);
+        assertUsersEqual(repository.getUser(USER_FOZZY.id()), userFozzyCopy);
+        assertUsersEqual(repository.getUser(USER_GOZZY.id()), userGozzyCopy);
     }
 
     private static void assertMessagesEquals(Message message1, Message message2) {

@@ -14,16 +14,16 @@ import java.util.*;
 /**
  * Generates a NormalizedEntityStore template from EntitySpec annotated files.
  */
-public class NormalizedStoreTemplateGenerator implements ITemplateGenerator {
+public class NormalizedEntityRepositoryTemplateGenerator implements ITemplateGenerator {
     private final String PACKAGE = "entitynormalizer.store";
-    private final String CLASSNAME = "NormalizedEntityStore";
+    private final String CLASSNAME = "NormalizedEntityRepository";
 
     private final Map<String, Template> templates;
 
     private final Set<TypeName> entityClasses;
     private final Map<String, TypeName> typeNameByGeneratedClassName;
 
-    public NormalizedStoreTemplateGenerator() {
+    public NormalizedEntityRepositoryTemplateGenerator() {
         this.templates = new HashMap<>();
         this.entityClasses = new HashSet<>();
         this.typeNameByGeneratedClassName = new HashMap<>();
