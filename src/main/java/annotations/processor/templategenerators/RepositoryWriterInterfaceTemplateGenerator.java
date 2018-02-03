@@ -11,7 +11,6 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -25,13 +24,8 @@ public class RepositoryWriterInterfaceTemplateGenerator implements ITemplateGene
 
     private final Map<String, Template> templates;
 
-    private final Set<TypeName> entityClasses;
-    private final Map<String, TypeName> typeNameByGeneratedClassName;
-
     public RepositoryWriterInterfaceTemplateGenerator() {
         this.templates = new HashMap<>();
-        this.entityClasses = new HashSet<>();
-        this.typeNameByGeneratedClassName = new HashMap<>();
     }
 
     @Override
@@ -42,13 +36,6 @@ public class RepositoryWriterInterfaceTemplateGenerator implements ITemplateGene
     @Override
     public void process(Set<? extends Element> entitySpecs, ProcessingEnvironment processingEnv) {
         Template template = new Template(PACKAGE, CLASSNAME, true);
-
-        for (Element entitySpec : entitySpecs) {
-            ClassName entityType = Utils.getEntityType(entitySpec, processingEnv);
-
-            typeNameByGeneratedClassName.put(entityType.simpleName(), entityType);
-            entityClasses.add(entityType);
-        }
 
         // Generate getters and setters for every Entity.
         for (Element entitySpec : entitySpecs) {

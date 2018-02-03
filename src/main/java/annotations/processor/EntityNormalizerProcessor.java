@@ -1,10 +1,7 @@
 package annotations.processor;
 
 import annotations.EntitySpec;
-import annotations.processor.templategenerators.EntityTemplateGenerator;
-import annotations.processor.templategenerators.NormalizedEntityRepositoryTemplateGenerator;
-import annotations.processor.templategenerators.RepositoryReaderInterfaceTemplateGenerator;
-import annotations.processor.templategenerators.RepositoryWriterInterfaceTemplateGenerator;
+import annotations.processor.templategenerators.*;
 import com.google.auto.service.AutoService;
 import com.google.auto.service.processor.AutoServiceProcessor;
 import com.google.common.collect.ImmutableSet;
@@ -25,7 +22,10 @@ public class EntityNormalizerProcessor extends AutoServiceProcessor {
             new EntityTemplateGenerator(),
             new RepositoryReaderInterfaceTemplateGenerator(),
             new RepositoryWriterInterfaceTemplateGenerator(),
-            new NormalizedEntityRepositoryTemplateGenerator()
+            new RepositoryTemplateGenerator(),
+            new StoreReaderInterfaceTemplateGenerator(),
+            new StoreWriterInterfaceTemplateGenerator(),
+            new InMemoryStoreTemplateGenerator()
     };
 
     @Override

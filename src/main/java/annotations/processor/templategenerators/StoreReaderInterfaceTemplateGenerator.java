@@ -3,7 +3,9 @@ package annotations.processor.templategenerators;
 import annotations.EntitySpec;
 import annotations.processor.ITemplateGenerator;
 import annotations.processor.Template;
-import com.squareup.javapoet.*;
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.ParameterSpec;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
@@ -13,17 +15,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-
-/**
- * Generates an interface for reading from the repository.
- */
-public class RepositoryReaderInterfaceTemplateGenerator implements ITemplateGenerator {
+public class StoreReaderInterfaceTemplateGenerator implements ITemplateGenerator {
     public static final String PACKAGE = "entitynormalizer.store";
-    public static final String CLASSNAME = "INormalizedEntityRepositoryReader";
+    public static final String CLASSNAME = "IEntityStoreReader";
 
     private final Map<String, Template> templates;
 
-    public RepositoryReaderInterfaceTemplateGenerator() {
+    public StoreReaderInterfaceTemplateGenerator() {
         this.templates = new HashMap<>();
     }
 

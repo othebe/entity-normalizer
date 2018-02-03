@@ -1,6 +1,5 @@
 package annotations.processor.templategenerators;
 
-import annotations.EntityId;
 import annotations.EntitySpec;
 import annotations.processor.ITemplateGenerator;
 import annotations.processor.Template;
@@ -12,9 +11,9 @@ import javax.lang.model.element.*;
 import java.util.*;
 
 /**
- * Generates a NormalizedEntityStore template from EntitySpec annotated files.
+ * Generates a in-memory store template from EntitySpec annotated files.
  */
-public class NormalizedEntityRepositoryTemplateGenerator implements ITemplateGenerator {
+public class RepositoryTemplateGenerator implements ITemplateGenerator {
     private final String PACKAGE = "entitynormalizer.store";
     private final String CLASSNAME = "NormalizedEntityRepository";
 
@@ -23,7 +22,7 @@ public class NormalizedEntityRepositoryTemplateGenerator implements ITemplateGen
     private final Set<TypeName> entityClasses;
     private final Map<String, TypeName> typeNameByGeneratedClassName;
 
-    public NormalizedEntityRepositoryTemplateGenerator() {
+    public RepositoryTemplateGenerator() {
         this.templates = new HashMap<>();
         this.entityClasses = new HashSet<>();
         this.typeNameByGeneratedClassName = new HashMap<>();
@@ -108,6 +107,7 @@ public class NormalizedEntityRepositoryTemplateGenerator implements ITemplateGen
         ParameterSpec entity = ParameterSpec.builder(entityType, "entity").build();
 
         MethodSpec.Builder builder = MethodSpec.methodBuilder("put")
+                .addAnnotation(Override.class)
                 .addModifiers(Modifier.PUBLIC)
                 .addParameter(entity)
                 .returns(Set_Entity);
@@ -187,6 +187,7 @@ public class NormalizedEntityRepositoryTemplateGenerator implements ITemplateGen
         ParameterSpec id = ParameterSpec.builder(Utils.getIdTypeName(entitySpecElement), "id").build();
 
         MethodSpec.Builder builder = MethodSpec.methodBuilder(String.format("get%s", entityType.simpleName()))
+                .addAnnotation(Override.class)
                 .addModifiers(Modifier.PUBLIC)
                 .addParameter(id)
                 .returns(entityType);

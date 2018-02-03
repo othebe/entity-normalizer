@@ -4,6 +4,7 @@ import annotations.EntitySpec;
 import annotations.processor.ITemplateGenerator;
 import annotations.processor.Template;
 import com.squareup.javapoet.*;
+import core.IEntity;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
@@ -13,17 +14,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-
-/**
- * Generates an interface for reading from the repository.
- */
-public class RepositoryReaderInterfaceTemplateGenerator implements ITemplateGenerator {
+public class StoreWriterInterfaceTemplateGenerator implements ITemplateGenerator {
     public static final String PACKAGE = "entitynormalizer.store";
-    public static final String CLASSNAME = "INormalizedEntityRepositoryReader";
+    public static final String CLASSNAME = "IEntityStoreWriter";
 
     private final Map<String, Template> templates;
 
-    public RepositoryReaderInterfaceTemplateGenerator() {
+    public StoreWriterInterfaceTemplateGenerator() {
         this.templates = new HashMap<>();
     }
 
@@ -50,14 +47,14 @@ public class RepositoryReaderInterfaceTemplateGenerator implements ITemplateGene
     }
 
     private MethodSpec getGetterForEntity(Element entitySpecElement, ProcessingEnvironment processingEnv) {
-        ClassName entityType = Utils.getEntityType(entitySpecElement, processingEnv);
+        TypeName entityType = Utils.getEntityType(entitySpecElement, processingEnv);
 
-        ParameterSpec id = ParameterSpec.builder(Utils.getIdTypeName(entitySpecElement), "id").build();
+        ParameterSpec entity = ParameterSpec.builder(entityType, "entity").build();
 
-        MethodSpec.Builder builder = MethodSpec.methodBuilder(String.format("get%s", entityType.simpleName()))
+        MethodSpec.Builder builder = MethodSpec.methodBuilder("put")
                 .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-                .addParameter(id)
-                .returns(entityType);
+                .addParameter(entity)
+                .returns(TypeName.BOOLEAN);
 
         return builder.build();
     }
