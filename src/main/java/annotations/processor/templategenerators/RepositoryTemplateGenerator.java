@@ -44,6 +44,21 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
             entityClasses.add(entityType);
         }
 
+        // Builder.
+        template.add(getTypeSpec_Builder());
+        template.add(getFieldSpec_Builder());
+
+        // IEntityStoreReader chain.
+        FieldSpec readers = getFieldSpec_readers();
+        template.add(readers);
+
+        // IEntityStoreWriter chain.
+        FieldSpec writers = getFieldSpec_writers();
+        template.add(writers);
+
+        // Constructor.
+        template.add(getConstructor(readers, writers));
+
         // Generate property fields for every Entity.
         Map<TypeName, FieldSpec> entityFieldSpecs = new HashMap<>();
         for (Element entitySpec : entitySpecs) {
@@ -68,6 +83,47 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
     @Override
     public Map<String, Template> getTemplates() {
         return templates;
+    }
+
+    private FieldSpec getFieldSpec_Builder() {
+        return FieldSpec.builder(ClassName.bestGuess("Builder"), "Builder", Modifier.PUBLIC, Modifier.STATIC)
+                .initializer("new Builder()")
+                .build();
+    }
+
+    private FieldSpec getFieldSpec_readers() {
+        ClassName readerType = ClassName.get(StoreReaderInterfaceTemplateGenerator.PACKAGE, StoreReaderInterfaceTemplateGenerator.CLASSNAME);
+        TypeName readerTypeArray = ArrayTypeName.of(readerType);
+
+        return FieldSpec.builder(readerTypeArray, "readers", Modifier.PRIVATE)
+                .build();
+    }
+
+    private FieldSpec getFieldSpec_writers() {
+        ClassName writerType = ClassName.get(StoreWriterInterfaceTemplateGenerator.PACKAGE, StoreWriterInterfaceTemplateGenerator.CLASSNAME);
+        TypeName writerTypeArray = ArrayTypeName.of(writerType);
+
+        return FieldSpec.builder(writerTypeArray, "writers", Modifier.PRIVATE)
+                .build();
+    }
+
+    /**
+     * Generates a constructor to take in reader and writer chains.
+     * @param readers Varargs reader chain.
+     * @param writers Varargs writer chain.
+     * @return Constructor methodSpec.
+     */
+    private MethodSpec getConstructor(FieldSpec readers, FieldSpec writers) {
+        ParameterSpec readerParameterSpec = ParameterSpec.builder(readers.type, "readers").build();
+        ParameterSpec writerParameterSpec = ParameterSpec.builder(writers.type, "writers").build();
+
+        return MethodSpec.constructorBuilder()
+                .addModifiers(Modifier.PRIVATE)
+                .addParameter(readerParameterSpec)
+                .addParameter(writerParameterSpec)
+                .addStatement("this.$N = $N", readers, readerParameterSpec)
+                .addStatement("this.$N = $N", writers, writerParameterSpec)
+                .build();
     }
 
     /**
@@ -465,6 +521,66 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
         }
 
         return builder.build();
+    }
+
+    private TypeSpec getTypeSpec_Builder() {
+        FieldSpec readers = getFieldSpec_readers();
+        FieldSpec writers = getFieldSpec_writers();
+
+        ParameterSpec readersParameterSpec = ParameterSpec.builder(readers.type, "readers").build();
+        ParameterSpec writersParameterSpec = ParameterSpec.builder(writers.type, "writers").build();
+
+        MethodSpec setReaders = MethodSpec.methodBuilder("setReaders")
+                .addModifiers(Modifier.PUBLIC)
+                .addParameter(readersParameterSpec)
+                .varargs(true)
+                .returns(ClassName.bestGuess("Builder"))
+                .addStatement("this.$N = $N", readers, readersParameterSpec)
+                .addStatement("return this")
+                .build();
+
+        MethodSpec setWriters = MethodSpec.methodBuilder("setWriters")
+                .addModifiers(Modifier.PUBLIC)
+                .addParameter(writersParameterSpec)
+                .varargs(true)
+                .returns(ClassName.bestGuess("Builder"))
+                .addStatement("this.$N = $N", writers, writersParameterSpec)
+                .addStatement("return this")
+                .build();
+
+        MethodSpec build = MethodSpec.methodBuilder("build")
+                .addModifiers(Modifier.PUBLIC)
+                .returns(ClassName.get(PACKAGE, CLASSNAME))
+                // Default getter.
+                .beginControlFlow("if ($N == null || $N.length == 0)", readers, readers)
+                .addStatement("$N = new $T { new $T() }",
+                        readers,
+                        readers.type,
+                        ClassName.get(InMemoryStoreTemplateGenerator.PACKAGE, InMemoryStoreTemplateGenerator.CLASSNAME))
+                .endControlFlow()
+                // Default setter.
+                .beginControlFlow("if ($N == null || $N.length == 0)", writers, writers)
+                .addStatement("$N = new $T { new $T() }",
+                        writers,
+                        writers.type,
+                        ClassName.get(InMemoryStoreTemplateGenerator.PACKAGE, InMemoryStoreTemplateGenerator.CLASSNAME))
+                .endControlFlow()
+                // Construct.
+                .addStatement("return new $T($N, $N)",
+                        ClassName.get(PACKAGE, CLASSNAME),
+                        readers,
+                        writers)
+                .build();
+
+        return TypeSpec.classBuilder("Builder")
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .addField(readers)
+                .addField(writers)
+                .addMethod(setReaders)
+                .addMethod(setWriters)
+                .addMethod(build)
+                .build();
+
     }
 
     /**

@@ -46,7 +46,7 @@ public class NormalizedEntityRepositoryTemplateGeneratorTest {
                     ImmutableList.of(DEVICE_WINDOWS),
                     ImmutableList.of(USER_GOZZY)));
 
-        repository = new NormalizedEntityRepository();
+        repository = NormalizedEntityRepository.Builder.build();
     }
 
     @Test

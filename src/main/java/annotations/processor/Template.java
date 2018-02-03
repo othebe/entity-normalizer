@@ -14,6 +14,7 @@ public class Template {
     private final List<TypeName> superInterfaces;
     private final List<FieldSpec> fields;
     private final List<MethodSpec> methods;
+    private final List<TypeSpec> innerClasses;
 
     private final boolean isInterface;
 
@@ -30,6 +31,7 @@ public class Template {
         this.superInterfaces = new LinkedList<>();
         this.fields = new LinkedList<>();
         this.methods = new LinkedList<>();
+        this.innerClasses = new LinkedList<>();
     }
 
     public void add(TypeName superInterface) {
@@ -42,6 +44,10 @@ public class Template {
 
     public void add(MethodSpec methodSpec) {
         methods.add(methodSpec);
+    }
+
+    public void add(TypeSpec innerClass) {
+        innerClasses.add(innerClass);
     }
 
     public JavaFile buildJavaFile() {
@@ -59,6 +65,10 @@ public class Template {
 
         for (MethodSpec methodSpec : methods) {
             builder.addMethod(methodSpec);
+        }
+
+        for (TypeSpec innerClass : innerClasses) {
+            builder.addType(innerClass);
         }
 
         return JavaFile.builder(packageName, builder.build()).build();

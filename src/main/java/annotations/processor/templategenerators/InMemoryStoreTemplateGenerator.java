@@ -13,8 +13,8 @@ import java.util.*;
  * Generates a in-memory store template from EntitySpec annotated files.
  */
 public class InMemoryStoreTemplateGenerator implements ITemplateGenerator {
-    private final String PACKAGE = "entitynormalizer.store";
-    private final String CLASSNAME = "InMemoryEntityStore";
+    public static final String PACKAGE = "entitynormalizer.store";
+    public static final String CLASSNAME = "InMemoryEntityStore";
 
     private final Map<String, Template> templates;
 
