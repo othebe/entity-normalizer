@@ -1,5 +1,6 @@
 package annotations.processor.templategenerators;
 
+import annotations.EntityId;
 import annotations.EntitySpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.ParameterizedTypeName;
@@ -7,6 +8,7 @@ import com.squareup.javapoet.TypeName;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.PackageElement;
 import java.util.*;
 
@@ -90,6 +92,23 @@ public class Utils {
         String generatedClassName = Utils.getEntityClassNameFromSpec(entitySpec, processingEnv.getLocale());
 
         return ClassName.get(sourcePackageElement.toString(), generatedClassName);
+    }
+
+    /**
+     * Gets the ID type for the Entity in the EntitySpec annotated element.
+     * @param entitySpecElement EntitySpec annotated element.
+     * @return ID typeName.
+     */
+    public static final TypeName getIdTypeName(Element entitySpecElement) {
+        for (Element enclosedElement : entitySpecElement.getEnclosedElements()) {
+            if (enclosedElement.getKind() == ElementKind.FIELD) {
+                if (enclosedElement.getAnnotation(EntityId.class) != null) {
+                    return Utils.getSafelyBoxedTypeName(TypeName.get(enclosedElement.asType()));
+                }
+            }
+        }
+
+        throw new RuntimeException("EntityID not defined for " + entitySpecElement.getSimpleName());
     }
 
     /**

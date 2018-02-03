@@ -59,6 +59,10 @@ public class NormalizedEntityRepositoryTemplateGenerator implements ITemplateGen
             template.add(getGetterForEntity(entitySpec, entityFieldSpecs, processingEnv));
         }
 
+        // Add reader and writer interfaces.
+        template.add(ClassName.get(RepositoryReaderInterfaceTemplateGenerator.PACKAGE, RepositoryReaderInterfaceTemplateGenerator.CLASSNAME));
+        template.add(ClassName.get(RepositoryWriterInterfaceTemplateGenerator.PACKAGE, RepositoryWriterInterfaceTemplateGenerator.CLASSNAME));
+
         templates.put(CLASSNAME, template);
     }
 
@@ -78,7 +82,7 @@ public class NormalizedEntityRepositoryTemplateGenerator implements ITemplateGen
 
         ParameterizedTypeName Map_Id_Entity = ParameterizedTypeName.get(
                 ClassName.get(HashMap.class),
-                getIdTypeName(entitySpecElement),
+                Utils.getIdTypeName(entitySpecElement),
                 entityType);
 
         String fieldName = String.format("%sById", Utils.convertToCamelCase(entityType.simpleName(), processingEnv.getLocale()));
@@ -180,7 +184,7 @@ public class NormalizedEntityRepositoryTemplateGenerator implements ITemplateGen
     private MethodSpec getGetterForEntity(Element entitySpecElement, Map<TypeName, FieldSpec> entityFieldSpecs, ProcessingEnvironment processingEnv) {
         ClassName entityType = Utils.getEntityType(entitySpecElement, processingEnv);
 
-        ParameterSpec id = ParameterSpec.builder(getIdTypeName(entitySpecElement), "id").build();
+        ParameterSpec id = ParameterSpec.builder(Utils.getIdTypeName(entitySpecElement), "id").build();
 
         MethodSpec.Builder builder = MethodSpec.methodBuilder(String.format("get%s", entityType.simpleName()))
                 .addModifiers(Modifier.PUBLIC)
@@ -460,23 +464,6 @@ public class NormalizedEntityRepositoryTemplateGenerator implements ITemplateGen
         }
 
         return builder.build();
-    }
-
-    /**
-     * Gets the ID type for the Entity in the EntitySpec annotated element.
-     * @param entitySpecElement EntitySpec annotated element.
-     * @return ID typeName.
-     */
-    private TypeName getIdTypeName(Element entitySpecElement) {
-        for (Element enclosedElement : entitySpecElement.getEnclosedElements()) {
-            if (enclosedElement.getKind() == ElementKind.FIELD) {
-                if (enclosedElement.getAnnotation(EntityId.class) != null) {
-                    return Utils.getSafelyBoxedTypeName(TypeName.get(enclosedElement.asType()));
-                }
-            }
-        }
-
-        throw new RuntimeException("EntityID not defined for " + entitySpecElement.getSimpleName());
     }
 
     /**

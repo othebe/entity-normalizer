@@ -9,15 +9,23 @@ import java.util.List;
 public class Template {
 
     private final String packageName;
-    private final String className;
+    private final String objectName;
 
     private final List<TypeName> superInterfaces;
     private final List<FieldSpec> fields;
     private final List<MethodSpec> methods;
 
-    public Template(final String packageName, final String className) {
+    private final boolean isInterface;
+
+    public Template(final String packageName, final String objectName) {
+        this(packageName, objectName, false);
+    }
+
+    public Template(final String packageName, final String objectName, final boolean isInterface) {
+        this.isInterface = isInterface;
+
         this.packageName = packageName;
-        this.className = className;
+        this.objectName = objectName;
 
         this.superInterfaces = new LinkedList<>();
         this.fields = new LinkedList<>();
@@ -37,7 +45,9 @@ public class Template {
     }
 
     public JavaFile buildJavaFile() {
-        TypeSpec.Builder builder = TypeSpec.classBuilder(className).addModifiers(Modifier.PUBLIC);
+        TypeSpec.Builder builder = isInterface ?
+                TypeSpec.interfaceBuilder(objectName).addModifiers(Modifier.PUBLIC) :
+                TypeSpec.classBuilder(objectName).addModifiers(Modifier.PUBLIC);
 
         for (TypeName superInterface : superInterfaces) {
             builder.addSuperinterface(superInterface);
