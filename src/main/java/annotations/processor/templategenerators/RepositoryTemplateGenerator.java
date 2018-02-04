@@ -418,12 +418,12 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
                     nestedKeySource,
                     source);
 
-            if (!Utils.getParameterizedEntities(keyParameter, entityClasses, typeNameByGeneratedClassName).isEmpty()) {
+            if (!Utils.getParameterizedEntities(keyParameter, entityClasses, typeNameByGeneratedClassName).isEmpty() || entityClasses.contains(keyParameter)) {
                 CodeBlock nestedCode = generatePutterCodeBlock(nestedKeySource, depth + 1, dirty);
                 builder.add(nestedCode);
             }
 
-            if (!Utils.getParameterizedEntities(valueParameter, entityClasses, typeNameByGeneratedClassName).isEmpty()) {
+            if (!Utils.getParameterizedEntities(valueParameter, entityClasses, typeNameByGeneratedClassName).isEmpty() || entityClasses.contains(valueParameter)) {
                 FieldSpec nestedValueSource = FieldSpec.builder(valueParameter, String.format("value%d", depth)).build();
                 builder.addStatement("$T $N = $N.get($N)",
                         nestedValueSource.type,
