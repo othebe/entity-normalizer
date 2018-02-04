@@ -46,7 +46,7 @@ public class NormalizedEntityRepositoryTemplateGeneratorTest {
                     ImmutableList.of(DEVICE_WINDOWS),
                     ImmutableList.of(USER_GOZZY)));
 
-        repository = NormalizedEntityRepository.Builder.build();
+        repository = NormalizedEntityRepository.builder().build();
     }
 
     @Test
@@ -72,13 +72,13 @@ public class NormalizedEntityRepositoryTemplateGeneratorTest {
     public void shouldGetEntities() {
         repository.put(message);
 
-        assertMessagesEquals(repository.getMessage(MESSAGE_ID), message);
-        assertUsersEqual(repository.getUser(USER_OZZY.id()), USER_OZZY);
-        assertUsersEqual(repository.getUser(USER_FOZZY.id()), USER_FOZZY);
-        assertUsersEqual(repository.getUser(USER_GOZZY.id()), USER_GOZZY);
-        assertDevicesEqual(repository.getDevice(DEVICE_ANDROID.id()), DEVICE_ANDROID);
-        assertDevicesEqual(repository.getDevice(DEVICE_IOS.id()), DEVICE_IOS);
-        assertDevicesEqual(repository.getDevice(DEVICE_WINDOWS.id()), DEVICE_WINDOWS);
+        assertEquals(repository.getMessage(MESSAGE_ID), message);
+        assertEquals(repository.getUser(USER_OZZY.id()), USER_OZZY);
+        assertEquals(repository.getUser(USER_FOZZY.id()), USER_FOZZY);
+        assertEquals(repository.getUser(USER_GOZZY.id()), USER_GOZZY);
+        assertEquals(repository.getDevice(DEVICE_ANDROID.id()), DEVICE_ANDROID);
+        assertEquals(repository.getDevice(DEVICE_IOS.id()), DEVICE_IOS);
+        assertEquals(repository.getDevice(DEVICE_WINDOWS.id()), DEVICE_WINDOWS);
     }
 
     @Test
@@ -88,7 +88,7 @@ public class NormalizedEntityRepositoryTemplateGeneratorTest {
         repository.put(USER_OZZY);
         repository.put(userOzzyCopy);
 
-        assertUsersEqual(repository.getUser(USER_OZZY.id()), userOzzyCopy);
+        assertEquals(repository.getUser(USER_OZZY.id()), userOzzyCopy);
     }
 
     @Test
@@ -100,8 +100,8 @@ public class NormalizedEntityRepositoryTemplateGeneratorTest {
 
         Message cachedMessage = repository.getMessage(message.id());
 
-        assertUsersEqual(repository.getUser(USER_OZZY.id()), userOzzyCopy);
-        assertUsersEqual(cachedMessage.getSender(), userOzzyCopy);
+        assertEquals(repository.getUser(USER_OZZY.id()), userOzzyCopy);
+        assertEquals(cachedMessage.getSender(), userOzzyCopy);
         List<User> deviceUsers = cachedMessage.getUsersByDevices().get(
                 ImmutableList.of(DEVICE_ANDROID, DEVICE_IOS));
         assertEquals(deviceUsers, ImmutableList.of(userOzzyCopy, USER_FOZZY));
@@ -114,7 +114,7 @@ public class NormalizedEntityRepositoryTemplateGeneratorTest {
         repository.put(userOzzyCopy);
         repository.put(message);
 
-        assertUsersEqual(repository.getUser(userOzzyCopy.id()), USER_OZZY);
+        assertEquals(repository.getUser(userOzzyCopy.id()), USER_OZZY);
     }
 
     @Test
@@ -140,25 +140,7 @@ public class NormalizedEntityRepositoryTemplateGeneratorTest {
         repository.put(message);
         repository.put(messageCopy);
 
-        assertUsersEqual(repository.getUser(USER_FOZZY.id()), userFozzyCopy);
-        assertUsersEqual(repository.getUser(USER_GOZZY.id()), userGozzyCopy);
-    }
-
-    private static void assertMessagesEquals(Message message1, Message message2) {
-        assertEquals(message1.getMessageId(), message2.getMessageId());
-        assertEquals(message1.getBody(), message2.getBody());
-        assertEquals(message1.getSender(), message2.getSender());
-        assertEquals(message1.getRecipients(), message2.getRecipients());
-        assertEquals(message1.getRecipientsToReadList(), message2.getRecipientsToReadList());
-        assertEquals(message1.getUsersByDevices(), message2.getUsersByDevices());
-    }
-
-    private static void assertUsersEqual(User user1, User user2) {
-        assertEquals(user1.getUserId(), user2.getUserId());
-        assertEquals(user1.getName(), user2.getName());
-    }
-
-    private static void assertDevicesEqual(Device device1, Device device2) {
-        assertEquals(device1.getDeviceType(), device2.getDeviceType());
+        assertEquals(repository.getUser(USER_FOZZY.id()), userFozzyCopy);
+        assertEquals(repository.getUser(USER_GOZZY.id()), userGozzyCopy);
     }
 }

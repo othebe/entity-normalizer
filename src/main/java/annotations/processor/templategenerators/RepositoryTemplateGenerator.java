@@ -46,7 +46,7 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
 
         // Builder.
         template.add(getTypeSpec_Builder());
-        template.add(getFieldSpec_Builder());
+        template.add(getFieldSpec_builder());
 
         // IEntityStoreReader chain.
         FieldSpec readers = getFieldSpec_readers();
@@ -59,18 +59,10 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
         // Constructor.
         template.add(getConstructor(readers, writers));
 
-        // Generate property fields for every Entity.
-        Map<TypeName, FieldSpec> entityFieldSpecs = new HashMap<>();
-        for (Element entitySpec : entitySpecs) {
-            FieldSpec fieldSpec = getEntityField(entitySpec, processingEnv);
-            template.add(fieldSpec);
-            entityFieldSpecs.put(Utils.getEntityType(entitySpec, processingEnv), fieldSpec);
-        }
-
         // Generate getters and setters for every Entity.
         for (Element entitySpec : entitySpecs) {
-            template.add(getPutterForEntity(entitySpec, entityFieldSpecs, processingEnv));
-            template.add(getGetterForEntity(entitySpec, entityFieldSpecs, processingEnv));
+            template.add(getPutterForEntity(entitySpec, writers, processingEnv));
+            template.add(getGetterForEntity(entitySpec, readers, processingEnv));
         }
 
         // Add reader and writer interfaces.
@@ -85,12 +77,24 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
         return templates;
     }
 
-    private FieldSpec getFieldSpec_Builder() {
-        return FieldSpec.builder(ClassName.bestGuess("Builder"), "Builder", Modifier.PUBLIC, Modifier.STATIC)
-                .initializer("new Builder()")
+
+    /**
+     * Generates an instance for the Builder class.
+     * @return Builder methodSpec.
+     */
+    private MethodSpec getFieldSpec_builder() {
+        ClassName builder = ClassName.bestGuess("Builder");
+        return MethodSpec.methodBuilder("builder")
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .returns(builder)
+                .addStatement("return new $T()", builder)
                 .build();
     }
 
+    /**
+     * Generates the readers array field.
+     * @return readers fieldSpec.
+     */
     private FieldSpec getFieldSpec_readers() {
         ClassName readerType = ClassName.get(StoreReaderInterfaceTemplateGenerator.PACKAGE, StoreReaderInterfaceTemplateGenerator.CLASSNAME);
         TypeName readerTypeArray = ArrayTypeName.of(readerType);
@@ -99,6 +103,10 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
                 .build();
     }
 
+    /**
+     * Generates the writers array field.
+     * @return writers fieldSpec.
+     */
     private FieldSpec getFieldSpec_writers() {
         ClassName writerType = ClassName.get(StoreWriterInterfaceTemplateGenerator.PACKAGE, StoreWriterInterfaceTemplateGenerator.CLASSNAME);
         TypeName writerTypeArray = ArrayTypeName.of(writerType);
@@ -127,34 +135,13 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
     }
 
     /**
-     * Generates a property field mapping an Entity by ID.
-     * @param entitySpecElement EntitySpec annotated element.
-     * @param processingEnv Processing environment.
-     * @return Map of ID to Entity for the Entity specified in the Entity spec.
-     */
-    private FieldSpec getEntityField(Element entitySpecElement, ProcessingEnvironment processingEnv) {
-        ClassName entityType = Utils.getEntityType(entitySpecElement, processingEnv);
-
-        ParameterizedTypeName Map_Id_Entity = ParameterizedTypeName.get(
-                ClassName.get(HashMap.class),
-                Utils.getIdTypeName(entitySpecElement),
-                entityType);
-
-        String fieldName = String.format("%sById", Utils.convertToCamelCase(entityType.simpleName(), processingEnv.getLocale()));
-
-        return FieldSpec.builder(Map_Id_Entity, fieldName, Modifier.PRIVATE)
-                .initializer("new $T()", Map_Id_Entity)
-                .build();
-    }
-
-    /**
      * Generates a putter method for an Entity that returns a Set of Entities that have been modified.
      * @param entitySpecElement EntitySpec annotated element.
-     * @param entityFieldSpecs Map of Entity (map) fieldSpecs by Entity types.
+     * @param writers Array of store writers.
      * @param processingEnv Processing environment.
      * @return put(Entity) -> Set<IEntity> methodSpec.
      */
-    private MethodSpec getPutterForEntity(Element entitySpecElement, Map<TypeName, FieldSpec> entityFieldSpecs, ProcessingEnvironment processingEnv) {
+    private MethodSpec getPutterForEntity(Element entitySpecElement, FieldSpec writers, ProcessingEnvironment processingEnv) {
         TypeName entityType = Utils.getEntityType(entitySpecElement, processingEnv);
 
         ParameterizedTypeName Set_Entity = ParameterizedTypeName.get(Set.class, IEntity.class);
@@ -174,8 +161,12 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
 
         // Mark current entity as dirty.
         builder.addStatement("$N.add($N)", dirty, entity);
-        // Add current entity to the store.
-        builder.addStatement("$N.put($N.id(), $N)", entityFieldSpecs.get(entityType), entity, entity);
+        // Add current entity to the stores.
+        ClassName writerType = ClassName.get(StoreWriterInterfaceTemplateGenerator.PACKAGE, StoreWriterInterfaceTemplateGenerator.CLASSNAME);
+        FieldSpec writer = FieldSpec.builder(writerType, "reader").build();
+        builder.beginControlFlow("for ($T $N : $N)", writer.type, writer, writers);
+        builder.addStatement("$N.put($N)", writer, entity);
+        builder.endControlFlow();
 
         // Store all Entities that appear as properties within this Entity.
         for (Element enclosedElement : entitySpecElement.getEnclosedElements()) {
@@ -202,8 +193,7 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
                 CodeBlock putter = generatePutterCodeBlock(
                         source,
                         0,
-                        dirty,
-                        entityFieldSpecs);
+                        dirty);
                 builder.addCode(putter);
             }
 
@@ -221,7 +211,7 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
                         Utils.convertToPascalCase(enclosedEntity.name, processingEnv.getLocale()));
 
                 builder.addStatement("$N.add($N)", dirty, enclosedEntity);
-                builder.addStatement("$N.put($N.id(), $N)", entityFieldSpecs.get(enclosedEntityType), enclosedEntity, enclosedEntity);
+                builder.addStatement("put($N)", enclosedEntity);
             }
         }
 
@@ -233,11 +223,11 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
     /**
      * Generates a getter method for an Entity.
      * @param entitySpecElement EntitySpec annotated element.
-     * @param entityFieldSpecs Map of Entity (map) fieldSpecs by Entity types.
+     * @param readers Array of store readers.
      * @param processingEnv Processing environment.
      * @return getEntity(ID) -> Entity methodSpec.
      */
-    private MethodSpec getGetterForEntity(Element entitySpecElement, Map<TypeName, FieldSpec> entityFieldSpecs, ProcessingEnvironment processingEnv) {
+    private MethodSpec getGetterForEntity(Element entitySpecElement, FieldSpec readers, ProcessingEnvironment processingEnv) {
         ClassName entityType = Utils.getEntityType(entitySpecElement, processingEnv);
 
         ParameterSpec id = ParameterSpec.builder(Utils.getIdTypeName(entitySpecElement), "id").build();
@@ -249,11 +239,24 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
                 .returns(entityType);
 
         FieldSpec cached = FieldSpec.builder(entityType, "cached").build();
-        builder.addStatement("$T $N = $N.get($N)", entityType, cached, entityFieldSpecs.get(entityType), id);
+        builder.addStatement("$T $N = null", cached.type, cached);
+
+        // Loop through readers.
+        ClassName readerType = ClassName.get(StoreReaderInterfaceTemplateGenerator.PACKAGE, StoreReaderInterfaceTemplateGenerator.CLASSNAME);
+        FieldSpec reader = FieldSpec.builder(readerType, "reader").build();
+        builder.beginControlFlow("for ($T $N : $N)", reader.type, reader, readers);
+        builder.addStatement("$N = $N.get$L($N)", cached, reader, entityType.simpleName(), id);
+        builder.beginControlFlow("if ($N != null)", cached);
+        builder.addStatement("break");
+        builder.endControlFlow();
+        builder.endControlFlow();
 
         builder.beginControlFlow("if ($N == null)", cached);
         builder.addStatement("return null");
         builder.endControlFlow();
+
+        FieldSpec dirty = FieldSpec.builder(TypeName.BOOLEAN, "dirty").build();
+        builder.addStatement("$T $N = false", dirty.type, dirty);
 
         // Constructor string.
         StringBuilder constructorString = new StringBuilder();
@@ -269,26 +272,31 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
                 continue;
             }
 
+            String enclosedElementName = Utils.convertToPascalCase(enclosedElement.getSimpleName().toString(), processingEnv.getLocale());
+
             TypeName enclosedElementType = TypeName.get(enclosedElement.asType());
+
+            FieldSpec enclosedElementField = FieldSpec.builder(enclosedElementType, enclosedElement.getSimpleName().toString()).build();
 
             // Handle nested entities.
             boolean isParameterizable = Utils.isList(enclosedElementType) || Utils.isMap(enclosedElementType);
             if (isParameterizable && !Utils.getParameterizedEntities(enclosedElementType, entityClasses, typeNameByGeneratedClassName).isEmpty()) {
+                // Dirty parameterized type flag.
+                FieldSpec nestedDirty = FieldSpec.builder(TypeName.BOOLEAN, String.format("%sDirty", enclosedElement.getSimpleName().toString())).build();
+                builder.addStatement("$T $N = false", nestedDirty.type, nestedDirty);
+
                 // Extract parameterized type.
-                FieldSpec source = FieldSpec.builder(
-                        enclosedElementType,
-                        enclosedElement.getSimpleName().toString()
-                ).build();
+                FieldSpec source = enclosedElementField;
                 builder.addStatement("$T $N = $N.get$L()",
                         source.type,
                         source,
                         cached,
-                        Utils.convertToPascalCase(enclosedElement.getSimpleName().toString(), processingEnv.getLocale()));
+                        enclosedElementName);
 
                 // Create a copy of the parameterized type.
                 FieldSpec sourceCopy = FieldSpec.builder(
                         enclosedElementType,
-                        String.format("%sCopy", enclosedElement.getSimpleName().toString())
+                        String.format("%sCopy", source.name)
                 ).build();
                 builder.addStatement("$T $N = new $T()",
                         sourceCopy.type,
@@ -298,40 +306,52 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
                 CodeBlock codeBlock = generateGetterCodeBlock(
                         source,
                         sourceCopy,
-                        0,
-                        entityFieldSpecs);
+                        nestedDirty,
+                        0);
                 builder.addCode(codeBlock);
+
+                // Check for equality and add to constructor.
+                builder.beginControlFlow("if ($N)", nestedDirty);
+                builder.addStatement("$N = true", dirty);
+                builder.nextControlFlow("else");
+                builder.addStatement("$N = $N", sourceCopy, source);
+                builder.endControlFlow();
 
                 constructorString.append("$N");
                 constructorArgs.add(sourceCopy);
-
-                if (iterator.hasNext()) {
-                    constructorString.append(", ");
-                }
             }
 
             // Entity.
             else if (typeNameByGeneratedClassName.containsKey(enclosedElementType.toString())) {
-                TypeName generatedType = typeNameByGeneratedClassName.get(enclosedElementType.toString());
+                builder.addStatement("$T $N = get$L($N.get$L().id())",
+                        enclosedElementField.type,
+                        enclosedElementField,
+                        enclosedElementType.toString(),
+                        cached,
+                        enclosedElementName);
 
-                constructorString.append("$N.get($N.get$L().id())");
-                constructorArgs.add(entityFieldSpecs.get(generatedType));
-                constructorArgs.add(cached);
-                constructorArgs.add(Utils.convertToPascalCase(enclosedElement.getSimpleName().toString(), processingEnv.getLocale()));
+                // Check for equality and add to constructor.
+                builder.beginControlFlow("if (!($N.get$L().equals($N)))",
+                        cached,
+                        enclosedElementName,
+                        enclosedElementField);
+                builder.addStatement("$N = true", dirty);
+                builder.endControlFlow();
 
-                if (iterator.hasNext()) {
-                    constructorString.append(", ");
-                }
+                constructorString.append("$N");
+                constructorArgs.add(enclosedElementField);
             }
 
             // Default.
             else {
-                constructorString.append(String.format("$N.get%s()", Utils.convertToPascalCase(enclosedElement.toString(), processingEnv.getLocale())));
-                constructorArgs.add(cached);
+                builder.addStatement("$T $N = $N.get$L()", enclosedElementField.type, enclosedElementField, cached, enclosedElementName);
 
-                if (iterator.hasNext()) {
-                    constructorString.append(", ");
-                }
+                constructorString.append("$N");
+                constructorArgs.add(enclosedElementField);
+            }
+
+            if (iterator.hasNext()) {
+                constructorString.append(", ");
             }
         }
 
@@ -341,7 +361,11 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
         Object[] constructorArgsArray = new Object[constructorArgs.size()];
         constructorArgs.toArray(constructorArgsArray);
 
+        builder.beginControlFlow("if ($N)", dirty);
         builder.addStatement("return new $T(" + constructorString.toString() + ")", constructorArgsArray);
+        builder.nextControlFlow("else");
+        builder.addStatement("return $N", cached);
+        builder.endControlFlow();
 
         return builder.build();
     }
@@ -351,10 +375,9 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
      * @param source The type containing Entities.
      * @param depth Recursion depth.
      * @param dirty Dirty Entity field.
-     * @param entityFieldSpecs Map of Entity fields by TypeName.
      * @return Codeblock.
      */
-    private CodeBlock generatePutterCodeBlock(FieldSpec source, int depth, FieldSpec dirty, Map<TypeName, FieldSpec> entityFieldSpecs) {
+    private CodeBlock generatePutterCodeBlock(FieldSpec source, int depth, FieldSpec dirty) {
         CodeBlock.Builder builder = CodeBlock.builder();
 
         TypeName sourceType = source.type;
@@ -364,7 +387,7 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
 
         if (Utils.getParameterizedEntities(sourceType, entityClasses, typeNameByGeneratedClassName).isEmpty()) {
             builder.addStatement("$N.add($N)", dirty, source);
-            builder.addStatement("$N.put($N.id(), $N)", entityFieldSpecs.get(source.type), source, source);
+            builder.addStatement("put($N)", source);
             return builder.build();
         }
 
@@ -379,7 +402,7 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
                     nestedSource,
                     source);
 
-            CodeBlock nestedCode = generatePutterCodeBlock(nestedSource, depth + 1, dirty, entityFieldSpecs);
+            CodeBlock nestedCode = generatePutterCodeBlock(nestedSource, depth + 1, dirty);
             builder.add(nestedCode);
 
             builder.endControlFlow();
@@ -396,7 +419,7 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
                     source);
 
             if (!Utils.getParameterizedEntities(keyParameter, entityClasses, typeNameByGeneratedClassName).isEmpty()) {
-                CodeBlock nestedCode = generatePutterCodeBlock(nestedKeySource, depth + 1, dirty, entityFieldSpecs);
+                CodeBlock nestedCode = generatePutterCodeBlock(nestedKeySource, depth + 1, dirty);
                 builder.add(nestedCode);
             }
 
@@ -407,7 +430,7 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
                         nestedValueSource,
                         source,
                         nestedKeySource);
-                CodeBlock nestedCode = generatePutterCodeBlock(nestedValueSource, depth + 1, dirty, entityFieldSpecs);
+                CodeBlock nestedCode = generatePutterCodeBlock(nestedValueSource, depth + 1, dirty);
                 builder.add(nestedCode);
             }
 
@@ -421,11 +444,11 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
      * Generates a CodeBlock to get Entities from a source and add the latest versions to the copy.
      * @param source The type containing Entities.
      * @param copy The type that will contain updated versions of the Entities.
+     * @param dirty Dirty field.
      * @param depth Recursion depth.
-     * @param entityFieldSpecs Map of Entity fields by TypeName.
      * @return Codeblock.
      */
-    private CodeBlock generateGetterCodeBlock(FieldSpec source, FieldSpec copy, int depth, Map<TypeName, FieldSpec> entityFieldSpecs) {
+    private CodeBlock generateGetterCodeBlock(FieldSpec source, FieldSpec copy, FieldSpec dirty, int depth) {
         CodeBlock.Builder builder = CodeBlock.builder();
 
         TypeName sourceType = source.type;
@@ -455,17 +478,27 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
                         nestedSourceCopy,
                         convertAbstractTypeToReal(nestedSourceCopy.type));
 
-                CodeBlock nestedCode = generateGetterCodeBlock(nestedSource, nestedSourceCopy, depth + 1, entityFieldSpecs);
+                CodeBlock nestedCode = generateGetterCodeBlock(nestedSource, nestedSourceCopy, dirty, depth + 1);
                 builder.add(nestedCode);
 
                 builder.addStatement("$N.add($N)",
                         copy,
                         nestedSourceCopy);
             } else {
-                builder.addStatement("$N.add($N.get($N.id()))",
-                        copy,
-                        entityFieldSpecs.get(nestedSource.type),
-                        nestedSource);
+                FieldSpec item = FieldSpec.builder(nestedSource.type, "item").build();
+                builder.addStatement("$T $N = get$L($N.id())", item.type, item, ((ClassName) nestedSource.type).simpleName(), nestedSource);
+
+                // Check for equality and add to constructor.
+                String equalityChecker = item.type.isPrimitive() ?
+                        "if ($N == $N)" :
+                        "if ($N.equals($N))";
+                builder.beginControlFlow(equalityChecker,
+                        nestedSource, item);
+                builder.addStatement("$N.add($N)", copy, nestedSource);
+                builder.nextControlFlow("else");
+                builder.addStatement("$N = true", dirty);
+                builder.addStatement("$N.add($N)", copy, item);
+                builder.endControlFlow();
             }
 
             builder.endControlFlow();
@@ -496,8 +529,21 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
                         nestedKeySourceCopy,
                         convertAbstractTypeToReal(nestedKeySourceCopy.type));
 
-                CodeBlock nestedCode = generateGetterCodeBlock(nestedKeySource, nestedKeySourceCopy, depth + 1, entityFieldSpecs);
+                CodeBlock nestedCode = generateGetterCodeBlock(nestedKeySource, nestedKeySourceCopy, dirty, depth + 1);
                 builder.add(nestedCode);
+            } else if (entityClasses.contains(keyParameter)) {
+                nestedKeySourceCopy = FieldSpec.builder(keyParameter, String.format("key%dCopy", depth)).build();
+                builder.addStatement("$T $N = get$L($N.id())",
+                        nestedKeySourceCopy.type,
+                        nestedKeySourceCopy,
+                        ((ClassName) keyParameter).simpleName(),
+                        nestedKeySource);
+                // Equality check.
+                builder.beginControlFlow("if (!($N.equals($N)))",
+                        nestedKeySource,
+                        nestedKeySourceCopy);
+                builder.addStatement("$N = true", dirty);
+                builder.endControlFlow();
             }
 
             FieldSpec nestedValueSourceCopy = null;
@@ -508,8 +554,21 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
                         nestedValueSourceCopy,
                         convertAbstractTypeToReal(nestedValueSourceCopy.type));
 
-                CodeBlock nestedCode = generateGetterCodeBlock(nestedValueSource, nestedValueSourceCopy, depth + 1, entityFieldSpecs);
+                CodeBlock nestedCode = generateGetterCodeBlock(nestedValueSource, nestedValueSourceCopy, dirty, depth + 1);
                 builder.add(nestedCode);
+            } else if (entityClasses.contains(valueParameter)) {
+                nestedValueSourceCopy = FieldSpec.builder(valueParameter, String.format("value%dCopy", depth)).build();
+                builder.addStatement("$T $N = get$L($N.id())",
+                        nestedValueSourceCopy.type,
+                        nestedValueSourceCopy,
+                        ((ClassName) valueParameter).simpleName(),
+                        nestedValueSource);
+                // Equality check.
+                builder.beginControlFlow("if (!($N.equals($N)))",
+                        nestedValueSource,
+                        nestedValueSourceCopy);
+                builder.addStatement("$N = true", dirty);
+                builder.endControlFlow();
             }
 
             builder.addStatement("$N.put($N, $N)",
@@ -523,6 +582,10 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
         return builder.build();
     }
 
+    /**
+     * Generates the Builder class.
+     * @return
+     */
     private TypeSpec getTypeSpec_Builder() {
         FieldSpec readers = getFieldSpec_readers();
         FieldSpec writers = getFieldSpec_writers();
@@ -548,22 +611,28 @@ public class RepositoryTemplateGenerator implements ITemplateGenerator {
                 .addStatement("return this")
                 .build();
 
+        // Default in-memory store.
+        FieldSpec defaultStore = FieldSpec.builder(ClassName.get(InMemoryStoreTemplateGenerator.PACKAGE, InMemoryStoreTemplateGenerator.CLASSNAME), "defaultStore")
+                .build();
+
         MethodSpec build = MethodSpec.methodBuilder("build")
                 .addModifiers(Modifier.PUBLIC)
                 .returns(ClassName.get(PACKAGE, CLASSNAME))
+                // In-memory store instance.
+                .addStatement("$T $N = new $T()", defaultStore.type, defaultStore, defaultStore.type)
                 // Default getter.
                 .beginControlFlow("if ($N == null || $N.length == 0)", readers, readers)
-                .addStatement("$N = new $T { new $T() }",
+                .addStatement("$N = new $T { $N }",
                         readers,
                         readers.type,
-                        ClassName.get(InMemoryStoreTemplateGenerator.PACKAGE, InMemoryStoreTemplateGenerator.CLASSNAME))
+                        defaultStore)
                 .endControlFlow()
                 // Default setter.
                 .beginControlFlow("if ($N == null || $N.length == 0)", writers, writers)
-                .addStatement("$N = new $T { new $T() }",
+                .addStatement("$N = new $T { $N }",
                         writers,
                         writers.type,
-                        ClassName.get(InMemoryStoreTemplateGenerator.PACKAGE, InMemoryStoreTemplateGenerator.CLASSNAME))
+                        defaultStore)
                 .endControlFlow()
                 // Construct.
                 .addStatement("return new $T($N, $N)",
